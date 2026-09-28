@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { barrasSvg, qrSvg, type TipoCodigo } from '../lib/codes'
 import { formatoPrecio, type Mostrar, type Producto } from '../lib/types'
 
@@ -11,6 +11,8 @@ export interface Diseno {
   logo: string // data URL de la imagen, reducida
   logoTam: number // % del alto de la etiqueta
   logoBN: boolean // blanco y negro puro (mejor en térmicas)
+  codigoTam: number // % del ancho máximo disponible para el código
+  codigoAlto: number // % del alto disponible para las barras
   borde: boolean
 }
 
@@ -40,8 +42,9 @@ function aPuntos(disponible: number, modulos: number, dpi: number) {
   return { tam: puntos * punto * modulos, puntos, cabe: puntos * punto * modulos <= disponible + 0.01 }
 }
 
-export default function Etiqueta({ p, d, w, h, dpi, previa }: {
+export default function Etiqueta({ p, d, w, h, dpi, previa, alMedir }: {
   p: Producto; d: Diseno; w: number; h: number; dpi: number; previa?: boolean
+  alMedir?: (m: { ancho: number; puntos: number } | null) => void
 }) {
   const cod = useCodigo(p, d)
   const m = d.mostrar
@@ -64,11 +67,11 @@ export default function Etiqueta({ p, d, w, h, dpi, previa }: {
     if (d.tipo === 'QR') {
       const alto = h - fs * 0.7
       const disp = !hayTexto ? Math.min(alto, w - fs) : apilado ? Math.min(alto * 0.62, w - fs) : Math.min(alto, w * 0.55)
-      ajuste = aPuntos(disp, cod.modulos, dpi)
+      ajuste = aPuntos(disp * (d.codigoTam ?? 100) / 100, cod.modulos, dpi)
       tamCodigo = { width: `${ajuste.tam}mm`, height: `${ajuste.tam}mm` }
     } else {
-      ajuste = aPuntos(w - fs * 1.8, cod.modulos, dpi)
-      tamCodigo = { width: `${ajuste.tam}mm`, height: '100%' }
+      ajuste = aPuntos((w - fs * 1.8) * (d.codigoTam ?? 100) / 100, cod.modulos, dpi)
+      tamCodigo = { width: `${ajuste.tam}mm`, height: `${d.codigoAlto ?? 100}%` }
     }
   }
 
@@ -83,8 +86,21 @@ export default function Etiqueta({ p, d, w, h, dpi, previa }: {
   const imgLogo = logo && (
     <img className={`e-logo ${d.logoBN ? 'bn' : ''}`} src={d.logo} alt="" style={{ height: `${(h * d.logoTam) / 100}mm` }} />
   )
-  const aviso = previa && ajuste && !ajuste.cabe && (
-    <div className="aviso-codigo no-print">{d.tipo === 'QR' ? 'QR muy denso' : 'Código muy largo'} para esta etiqueta: usa una más grande o un código más corto</div>
+  // Módulo mínimo recomendado: ~0.19 mm en barras (2 puntos a 203 dpi) y ~0.3 mm en QR para lectores/celulares
+  const modulo = ajuste && cod ? ajuste.tam / cod.modulos : 0
+  const muyChico = ajuste && ajuste.cabe && modulo < (d.tipo === 'QR' ? 0.3 : 0.19)
+  const medida = ajuste ? `${ajuste.tam.toFixed(1)}|${ajuste.puntos}` : ''
+  useEffect(() => {
+    if (!alMedir) return
+    const [a, pt] = medida.split('|')
+    alMedir(medida ? { ancho: Number(a), puntos: Number(pt) } : null)
+  }, [medida, alMedir])
+  const aviso = previa && ajuste && (!ajuste.cabe || muyChico) && (
+    <div className="aviso-codigo no-print">
+      {!ajuste.cabe
+        ? `${d.tipo === 'QR' ? 'QR muy denso' : 'Código muy largo'} para esta etiqueta: usa una más grande o un código más corto`
+        : `${d.tipo === 'QR' ? 'QR' : 'Barras'} muy pequeño (${modulo.toFixed(2)} mm por módulo): puede no escanear, súbele el tamaño`}
+    </div>
   )
 
   // QR en etiquetas anchas: código a la izquierda y texto a la derecha. En etiquetas altas: apilado.

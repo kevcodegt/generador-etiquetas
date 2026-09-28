@@ -105,6 +105,9 @@ form.tarjeta, section.tarjeta, .tarjeta.sticky { display: flex; flex-direction: 
 .excel { display: flex; flex-direction: column; gap: 10px; padding: 14px; border: 2px solid var(--negro); border-radius: var(--radio); background: #fffbe5; font-size: 14px; }
 .pill { background: var(--fondo); border: 1px solid var(--linea); padding: 1px 8px; border-radius: 20px; font-size: 12px; font-weight: 700; white-space: nowrap; }
 .lista-items { max-height: 320px; overflow-y: auto; }
+.tam-codigo { display: grid; grid-template-columns: 1fr 1fr auto; gap: 16px; align-items: end; }
+.tam-codigo input[type='range'] { accent-color: var(--negro); width: 100%; }
+@media (max-width: 520px) { .tam-codigo { grid-template-columns: 1fr; } }
 .lista { border: 2px solid var(--linea); border-radius: var(--radio); overflow: hidden; }
 .lista-titulo { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: var(--fondo); font-size: 14px; }
 .lista-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-top: 1px solid #eeebe2; font-size: 14px; }
@@ -165,7 +168,7 @@ form.tarjeta, section.tarjeta, .tarjeta.sticky { display: flex; flex-direction: 
 .e-extra { font-size: 0.72em; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .etiqueta.barras { display: flex; flex-direction: column; gap: 0.15em; }
-.etiqueta.barras .e-code { flex: 1; min-height: 0; padding: 0.1em 0.4em; display: flex; justify-content: center; }
+.etiqueta.barras .e-code { flex: 1; min-height: 0; padding: 0.1em 0.4em; display: flex; justify-content: center; align-items: center; }
 .etiqueta.barras .e-top .e-desc { -webkit-line-clamp: 1; }
 .etiqueta.barras .e-top { display: flex; align-items: center; gap: 0.4em; min-width: 0; }
 .etiqueta.barras .e-top.solo-logo { justify-content: center; }

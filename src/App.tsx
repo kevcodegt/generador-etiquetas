@@ -18,7 +18,7 @@ interface Ajustes {
 
 const AJUSTES_INICIALES: Ajustes = {
   diseno: {
-    tipo: 'CODE128', qrDatos: false, moneda: 'Q', negocio: '', borde: false, logo: '', logoTam: 30, logoBN: true,
+    tipo: 'CODE128', qrDatos: false, moneda: 'Q', negocio: '', borde: false, logo: '', logoTam: 30, logoBN: true, codigoTam: 100, codigoAlto: 100,
     mostrar: { descripcion: true, precio: true, ubicacion: false, stock: false, sku: true, negocio: false, logo: false },
   },
   preset: 'r5025',
@@ -55,6 +55,7 @@ export default function App() {
   const [preguntar, setPreguntar] = useState(false)
   const [trabajo, setTrabajo] = useState<Trabajo | null>(null)
   const [verMedidas, setVerMedidas] = useState(false)
+  const [medida, setMedida] = useState<{ ancho: number; puntos: number } | null>(null)
   const skuRef = useRef<HTMLInputElement>(null)
   const logoRef = useRef<HTMLInputElement>(null)
   const excelRef = useRef<HTMLInputElement>(null)
@@ -292,6 +293,20 @@ export default function App() {
                   Que el QR también contenga la descripción, precio y demás datos marcados
                 </label>
               )}
+              <div className="tam-codigo">
+                <label>{d.tipo === 'QR' ? 'Tamaño del QR' : 'Ancho del código'} <span className="suave">{d.codigoTam}%</span>
+                  <input type="range" min={20} max={100} step={5} value={d.codigoTam} onChange={(e) => setD({ codigoTam: Number(e.target.value) })} />
+                </label>
+                {d.tipo !== 'QR' && (
+                  <label>Alto de las barras <span className="suave">{d.codigoAlto}%</span>
+                    <input type="range" min={20} max={100} step={5} value={d.codigoAlto} onChange={(e) => setD({ codigoAlto: Number(e.target.value) })} />
+                  </label>
+                )}
+                {(d.codigoTam !== 100 || d.codigoAlto !== 100) && (
+                  <button type="button" className="link" onClick={() => setD({ codigoTam: 100, codigoAlto: 100 })}>Restablecer</button>
+                )}
+              </div>
+              <p className="suave pequeno">El tamaño se ajusta a los puntos de la impresora: si el código es muy chico para leerse, la app te avisará. Para escanear bien, deja espacio en blanco a los lados.</p>
             </section>
 
             {/* 3. Impresora / etiqueta */}
@@ -372,11 +387,12 @@ export default function App() {
               <h2>Vista previa</h2>
               <div className="lienzo">
                 <div style={{ zoom: escala, '--z': escala } as CSSProperties}>
-                  <Etiqueta p={muestra} d={d} w={pl.w} h={pl.h} dpi={aj.dpi} previa />
+                  <Etiqueta p={muestra} d={d} w={pl.w} h={pl.h} dpi={aj.dpi} previa alMedir={setMedida} />
                 </div>
               </div>
               <p className="suave centrado">
-                {pl.w} × {pl.h} mm{porPagina(pl) > 1 && ` · ${porPagina(pl)} por ${hoja ? 'hoja' : 'fila'}`}
+                Etiqueta {pl.w} × {pl.h} mm{porPagina(pl) > 1 && ` · ${porPagina(pl)} por ${hoja ? 'hoja' : 'fila'}`}
+                {medida && <><br />{d.tipo === 'QR' ? 'QR' : 'Código'}: {medida.ancho} mm {d.tipo === 'QR' ? 'por lado' : 'de ancho'} · {medida.puntos} punto{medida.puntos === 1 ? '' : 's'} por {d.tipo === 'QR' ? 'cuadro' : 'barra'} a {aj.dpi} dpi</>}
                 {muestra === EJEMPLO && ' · datos de ejemplo'}
               </p>
 
