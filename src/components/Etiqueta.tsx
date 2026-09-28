@@ -8,6 +8,9 @@ export interface Diseno {
   mostrar: Record<Mostrar, boolean>
   moneda: string
   negocio: string
+  logo: string // data URL de la imagen, reducida
+  logoTam: number // % del alto de la etiqueta
+  logoBN: boolean // blanco y negro puro (mejor en térmicas)
   borde: boolean
 }
 
@@ -50,7 +53,8 @@ export default function Etiqueta({ p, d, w, h, dpi, previa }: {
   const sku = m.sku && p.sku
 
   const fs = Math.max(1.4, Math.min(h * 0.105, w * 0.065)) // tamaño de letra en mm
-  const hayTexto = negocio || desc || precio || extras || sku
+  const logo = m.logo && d.logo
+  const hayTexto = logo || negocio || desc || precio || extras || sku
   const apilado = d.tipo === 'QR' && h > w * 0.9
 
   // Espacio disponible para el código (descontando los rellenos definidos en CSS en em)
@@ -76,6 +80,9 @@ export default function Etiqueta({ p, d, w, h, dpi, previa }: {
 
   const estilo = { width: `${w}mm`, height: `${h}mm`, fontSize: `${fs}mm` }
   const clase = `etiqueta ${d.borde ? 'borde' : ''}`
+  const imgLogo = logo && (
+    <img className={`e-logo ${d.logoBN ? 'bn' : ''}`} src={d.logo} alt="" style={{ height: `${(h * d.logoTam) / 100}mm` }} />
+  )
   const aviso = previa && ajuste && !ajuste.cabe && (
     <div className="aviso-codigo no-print">{d.tipo === 'QR' ? 'QR muy denso' : 'Código muy largo'} para esta etiqueta: usa una más grande o un código más corto</div>
   )
@@ -87,6 +94,7 @@ export default function Etiqueta({ p, d, w, h, dpi, previa }: {
         <div className="qr-code">{codigo}</div>
         {hayTexto && (
           <div className="qr-texto">
+            {imgLogo}
             {negocio && <div className="e-negocio">{d.negocio}</div>}
             {desc && <div className="e-desc">{p.descripcion}</div>}
             {precio && <div className="e-precio">{precio}</div>}
@@ -101,10 +109,15 @@ export default function Etiqueta({ p, d, w, h, dpi, previa }: {
 
   return (
     <div className={`${clase} barras`} style={estilo}>
-      {(negocio || desc) && (
-        <div className="e-top">
-          {negocio && <div className="e-negocio">{d.negocio}</div>}
-          {desc && <div className="e-desc">{p.descripcion}</div>}
+      {(logo || negocio || desc) && (
+        <div className={`e-top ${logo && !negocio && !desc ? 'solo-logo' : ''}`}>
+          {imgLogo}
+          {(negocio || desc) && (
+            <div className="e-top-texto">
+              {negocio && <div className="e-negocio">{d.negocio}</div>}
+              {desc && <div className="e-desc">{p.descripcion}</div>}
+            </div>
+          )}
         </div>
       )}
       <div className="e-code">{codigo}</div>

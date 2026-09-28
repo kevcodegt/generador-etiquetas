@@ -4,6 +4,7 @@ import { TIPOS, generarSku } from './lib/codes'
 import { PAPELES, PRESETS, porPagina, seSale, tamPagina, type Plantilla } from './lib/formatos'
 import { CAMPOS, PRODUCTO_VACIO, type Producto } from './lib/types'
 import { IMPRESORAS } from './lib/impresoras'
+import { descargarPlantilla, leerExcel } from './lib/excel'
 
 interface Ajustes {
   diseno: Diseno
@@ -17,8 +18,8 @@ interface Ajustes {
 
 const AJUSTES_INICIALES: Ajustes = {
   diseno: {
-    tipo: 'CODE128', qrDatos: false, moneda: 'Q', negocio: '', borde: false,
-    mostrar: { descripcion: true, precio: true, ubicacion: false, stock: false, sku: true, negocio: false },
+    tipo: 'CODE128', qrDatos: false, moneda: 'Q', negocio: '', borde: false, logo: '', logoTam: 30, logoBN: true,
+    mostrar: { descripcion: true, precio: true, ubicacion: false, stock: false, sku: true, negocio: false, logo: false },
   },
   preset: 'r5025',
   plantilla: PRESETS.find((p) => p.id === 'r5025')!.p,
@@ -55,6 +56,50 @@ export default function App() {
   const [trabajo, setTrabajo] = useState<Trabajo | null>(null)
   const [verMedidas, setVerMedidas] = useState(false)
   const skuRef = useRef<HTMLInputElement>(null)
+  const logoRef = useRef<HTMLInputElement>(null)
+  const excelRef = useRef<HTMLInputElement>(null)
+  const [msgExcel, setMsgExcel] = useState<{ ok: boolean; texto: string } | null>(null)
+
+  async function cargarExcel(f: File) {
+    setMsgExcel({ ok: true, texto: 'Leyendo archivo…' })
+    try {
+      const { filas, aviso } = await leerExcel(f)
+      if (!filas.length) { setMsgExcel({ ok: false, texto: aviso || 'No encontré productos con código en el archivo.' }); return }
+      setLista((l) => [...l, ...filas.map((x) => ({ ...x, id: nuevoId() }))])
+      // Mostrar automáticamente los campos que vienen llenos
+      const usados = {
+        descripcion: filas.some((x) => x.descripcion), precio: filas.some((x) => x.precio),
+        ubicacion: filas.some((x) => x.ubicacion), stock: filas.some((x) => x.stock),
+      }
+      setAj((a) => ({ ...a, diseno: { ...a.diseno, mostrar: { ...a.diseno.mostrar, ...Object.fromEntries(Object.entries(usados).filter(([, v]) => v)) } } }))
+      setMsgExcel({ ok: true, texto: `${filas.length} producto${filas.length === 1 ? '' : 's'} cargado${filas.length === 1 ? '' : 's'} desde ${f.name}.${aviso ? ' ' + aviso : ''}` })
+    } catch {
+      setMsgExcel({ ok: false, texto: 'No se pudo leer el archivo. Usa .xlsx, .xls o .csv.' })
+    }
+  }
+  const [errorLogo, setErrorLogo] = useState('')
+
+  // Reduce el logo a máx. 600 px para que la vista previa e impresión sean rápidas y quepa en el navegador
+  async function cargarLogo(f: File) {
+    setErrorLogo('')
+    if (!f.type.startsWith('image/')) { setErrorLogo('El archivo no es una imagen.'); return }
+    try {
+      const url = URL.createObjectURL(f)
+      const img = new Image()
+      img.src = url
+      await img.decode()
+      const max = 600
+      const k = Math.min(1, max / Math.max(img.naturalWidth || max, img.naturalHeight || max))
+      const c = document.createElement('canvas')
+      c.width = Math.round((img.naturalWidth || max) * k)
+      c.height = Math.round((img.naturalHeight || max) * k)
+      c.getContext('2d')!.drawImage(img, 0, 0, c.width, c.height)
+      URL.revokeObjectURL(url)
+      setAj((a) => ({ ...a, diseno: { ...a.diseno, logo: c.toDataURL('image/png'), mostrar: { ...a.diseno.mostrar, logo: true } } }))
+    } catch {
+      setErrorLogo('No se pudo leer la imagen. Prueba con un PNG o JPG.')
+    }
+  }
 
   const { diseno: d, plantilla: pl } = aj
   const hoja = pl.medio === 'hoja'
@@ -158,6 +203,38 @@ export default function App() {
               {d.mostrar.ubicacion && (
                 <label>Ubicación<input value={actual.ubicacion} onChange={(e) => setActual({ ...actual, ubicacion: e.target.value })} placeholder="Ej. Pasillo 3 · Estante B" /></label>
               )}
+              {d.mostrar.logo && (
+                <div className="logo-box">
+                  {d.logo ? (
+                    <>
+                      <div className="logo-muestra"><img src={d.logo} alt="Logo" className={d.logoBN ? 'bn' : ''} /></div>
+                      <div className="logo-opciones">
+                        <label>Tamaño en la etiqueta
+                          <input type="range" min={10} max={60} value={d.logoTam} onChange={(e) => setD({ logoTam: Number(e.target.value) })} />
+                        </label>
+                        <label className="casilla">
+                          <input type="checkbox" checked={d.logoBN} onChange={(e) => setD({ logoBN: e.target.checked })} />
+                          Blanco y negro (recomendado en térmicas)
+                        </label>
+                        <div className="acciones">
+                          <button type="button" className="btn" onClick={() => logoRef.current?.click()}>Cambiar</button>
+                          <button type="button" className="link peligro" onClick={() => setD({ logo: '' })}>Quitar logo</button>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <button type="button" className="subir" onClick={() => logoRef.current?.click()}
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) cargarLogo(f) }}>
+                      <b>Cargar logo</b>
+                      <span>Haz clic o arrastra una imagen (PNG, JPG, SVG). Mejor con fondo blanco o transparente.</span>
+                    </button>
+                  )}
+                  {errorLogo && <p className="error">{errorLogo}</p>}
+                  <input ref={logoRef} type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml,image/gif" hidden
+                    onChange={(e) => { const f = e.target.files?.[0]; if (f) cargarLogo(f); e.target.value = '' }} />
+                </div>
+              )}
               {d.mostrar.negocio && (
                 <label>Nombre del negocio<input value={d.negocio} onChange={(e) => setD({ negocio: e.target.value })} placeholder="Mi Tienda" /></label>
               )}
@@ -167,17 +244,33 @@ export default function App() {
                 {actualTieneDatos && <button type="button" className="link" onClick={() => setActual({ ...PRODUCTO_VACIO, id: nuevoId() })}>Limpiar</button>}
               </div>
 
+              <div className="excel">
+                <div>
+                  <b>¿Muchos productos?</b> Cárgalos desde Excel
+                  <span className="suave"> · columnas: Código, Descripción, Precio, Ubicación, Stock, Etiquetas</span>
+                </div>
+                <div className="acciones">
+                  <button type="button" className="btn negro" onClick={() => excelRef.current?.click()}>📄 Cargar Excel</button>
+                  <button type="button" className="link" onClick={() => descargarPlantilla()}>Descargar plantilla</button>
+                </div>
+                {msgExcel && <p className={msgExcel.ok ? 'ok' : 'error'}>{msgExcel.texto}</p>}
+                <input ref={excelRef} type="file" hidden
+                  accept=".xlsx,.xls,.csv,.ods,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv"
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) cargarExcel(f); e.target.value = '' }} />
+              </div>
+
               {lista.length > 0 && (
                 <div className="lista">
                   <div className="lista-titulo"><b>Lista para imprimir ({lista.length})</b><button type="button" className="link" onClick={() => setLista([])}>Vaciar</button></div>
-                  {lista.map((p) => (
+                  <div className="lista-items">{lista.map((p) => (
                     <div key={p.id} className={`lista-item ${p.id === actual.id ? 'editando' : ''}`}>
                       <span className="mono">{p.sku}</span>
                       <span className="nombre">{p.descripcion}</span>
+                      {p.copias != null && <span className="pill">{p.copias} etiq.</span>}
                       <button type="button" className="link" onClick={() => setActual(p)}>Editar</button>
                       <button type="button" className="link peligro" onClick={() => setLista(lista.filter((x) => x.id !== p.id))} aria-label="Quitar">✕</button>
                     </div>
-                  ))}
+                  ))}</div>
                 </div>
               )}
             </form>
@@ -333,8 +426,9 @@ function Cantidades({ productos, hoja, porHoja, onCancelar, onImprimir }: {
   productos: Producto[]; hoja: boolean; porHoja: number
   onCancelar: () => void; onImprimir: (t: Trabajo) => void
 }) {
-  const [n, setN] = useState<Record<string, string>>(() => Object.fromEntries(productos.map((p) => [p.id, '1'])))
+  const [n, setN] = useState<Record<string, string>>(() => Object.fromEntries(productos.map((p) => [p.id, String(p.copias ?? 1)])))
   const [saltar, setSaltar] = useState('0')
+  const [todos, setTodos] = useState('1')
   const total = productos.reduce((s, p) => s + (parseInt(n[p.id]) || 0), 0)
   const hojas = hoja ? Math.ceil((total + (parseInt(saltar) || 0)) / porHoja) : 0
 
@@ -351,6 +445,13 @@ function Cantidades({ productos, hoja, porHoja, onCancelar, onImprimir }: {
     <div className="modal-fondo" onMouseDown={(e) => e.target === e.currentTarget && onCancelar()}>
       <form className="modal tarjeta" onSubmit={enviar}>
         <h2>¿Cuántas etiquetas vas a imprimir?</h2>
+        {productos.length > 1 && (
+          <div className="todos">
+            <span>Misma cantidad para todos:</span>
+            <input type="number" min={0} max={2000} value={todos} onChange={(e) => setTodos(e.target.value)} />
+            <button type="button" className="btn" onClick={() => setN(Object.fromEntries(productos.map((p) => [p.id, todos])))}>Aplicar</button>
+          </div>
+        )}
         <div className="cantidades">
           {productos.map((p, i) => (
             <label key={p.id} className="cantidad">

@@ -1,5 +1,5 @@
 export type Campo = 'descripcion' | 'precio' | 'ubicacion' | 'stock'
-export type Mostrar = Campo | 'sku' | 'negocio'
+export type Mostrar = Campo | 'sku' | 'negocio' | 'logo'
 
 export const CAMPOS: { id: Mostrar; nombre: string }[] = [
   { id: 'descripcion', nombre: 'Descripción' },
@@ -8,6 +8,7 @@ export const CAMPOS: { id: Mostrar; nombre: string }[] = [
   { id: 'stock', nombre: 'Stock' },
   { id: 'sku', nombre: 'Código en texto' },
   { id: 'negocio', nombre: 'Nombre del negocio' },
+  { id: 'logo', nombre: 'Logo' },
 ]
 
 export interface Producto {
@@ -17,6 +18,7 @@ export interface Producto {
   precio: string
   ubicacion: string
   stock: string
+  copias?: number // etiquetas sugeridas (desde Excel)
 }
 
 export const PRODUCTO_VACIO: Producto = { id: '', sku: '', descripcion: '', precio: '', ubicacion: '', stock: '' }
