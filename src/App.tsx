@@ -18,7 +18,7 @@ interface Ajustes {
 
 const AJUSTES_INICIALES: Ajustes = {
   diseno: {
-    tipo: 'CODE128', qrDatos: false, moneda: 'Q', negocio: '', borde: false, logo: '', logoTam: 30, logoBN: true, codigoTam: 100, codigoAlto: 100,
+    tipo: 'CODE128', qrDatos: false, moneda: 'Q', negocio: '', borde: false, logo: '', logoTam: 30, logoBN: true, codigoTam: 100, codigoAltoMm: 0,
     mostrar: { descripcion: true, precio: true, ubicacion: false, stock: false, sku: true, negocio: false, logo: false },
   },
   preset: 'r5025',
@@ -298,12 +298,14 @@ export default function App() {
                   <input type="range" min={20} max={100} step={5} value={d.codigoTam} onChange={(e) => setD({ codigoTam: Number(e.target.value) })} />
                 </label>
                 {d.tipo !== 'QR' && (
-                  <label>Alto de las barras <span className="suave">{d.codigoAlto}%</span>
-                    <input type="range" min={20} max={100} step={5} value={d.codigoAlto} onChange={(e) => setD({ codigoAlto: Number(e.target.value) })} />
+                  <label>Alto de las barras <span className="suave">{d.codigoAltoMm > 0 ? `${Math.min(d.codigoAltoMm, +(pl.h * 0.8).toFixed(1))} mm` : 'Auto (llena el espacio)'}</span>
+                    <input type="range" min={2} max={Math.floor(pl.h * 0.8)} step={0.5}
+                      value={d.codigoAltoMm > 0 ? Math.min(d.codigoAltoMm, pl.h * 0.8) : Math.floor(pl.h * 0.8)}
+                      onChange={(e) => setD({ codigoAltoMm: Number(e.target.value) })} />
                   </label>
                 )}
-                {(d.codigoTam !== 100 || d.codigoAlto !== 100) && (
-                  <button type="button" className="link" onClick={() => setD({ codigoTam: 100, codigoAlto: 100 })}>Restablecer</button>
+                {(d.codigoTam !== 100 || d.codigoAltoMm > 0) && (
+                  <button type="button" className="link" onClick={() => setD({ codigoTam: 100, codigoAltoMm: 0 })}>Restablecer</button>
                 )}
               </div>
               <p className="suave pequeno">El tamaño se ajusta a los puntos de la impresora: si el código es muy chico para leerse, la app te avisará. Para escanear bien, deja espacio en blanco a los lados.</p>

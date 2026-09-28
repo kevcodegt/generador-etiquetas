@@ -12,7 +12,7 @@ export interface Diseno {
   logoTam: number // % del alto de la etiqueta
   logoBN: boolean // blanco y negro puro (mejor en térmicas)
   codigoTam: number // % del ancho máximo disponible para el código
-  codigoAlto: number // % del alto disponible para las barras
+  codigoAltoMm: number // alto de las barras en mm; 0 = automático (llena el espacio)
   borde: boolean
 }
 
@@ -55,7 +55,10 @@ export default function Etiqueta({ p, d, w, h, dpi, previa, alMedir }: {
   const desc = m.descripcion && p.descripcion
   const sku = m.sku && p.sku
 
-  const fs = Math.max(1.4, Math.min(h * 0.105, w * 0.065)) // tamaño de letra en mm
+  // Alto fijo de barras (limitado a 80% de la etiqueta). Si las barras son bajas, el texto crece un poco para aprovechar el espacio.
+  const altoBarras = d.tipo !== 'QR' && d.codigoAltoMm > 0 ? Math.min(d.codigoAltoMm, h * 0.8) : 0
+  const crecer = altoBarras ? 1 + Math.max(0, 0.45 - altoBarras / h) : 1
+  const fs = Math.max(1.4, Math.min(h * 0.105, w * 0.065)) * crecer // tamaño de letra en mm
   const logo = m.logo && d.logo
   const hayTexto = logo || negocio || desc || precio || extras || sku
   const apilado = d.tipo === 'QR' && h > w * 0.9
@@ -71,7 +74,7 @@ export default function Etiqueta({ p, d, w, h, dpi, previa, alMedir }: {
       tamCodigo = { width: `${ajuste.tam}mm`, height: `${ajuste.tam}mm` }
     } else {
       ajuste = aPuntos((w - fs * 1.8) * (d.codigoTam ?? 100) / 100, cod.modulos, dpi)
-      tamCodigo = { width: `${ajuste.tam}mm`, height: `${d.codigoAlto ?? 100}%` }
+      tamCodigo = { width: `${ajuste.tam}mm`, height: '100%' }
     }
   }
 
@@ -124,7 +127,7 @@ export default function Etiqueta({ p, d, w, h, dpi, previa, alMedir }: {
   }
 
   return (
-    <div className={`${clase} barras`} style={estilo}>
+    <div className={`${clase} barras ${altoBarras ? 'alto-fijo' : ''}`} style={estilo}>
       {(logo || negocio || desc) && (
         <div className={`e-top ${logo && !negocio && !desc ? 'solo-logo' : ''}`}>
           {imgLogo}
@@ -136,7 +139,7 @@ export default function Etiqueta({ p, d, w, h, dpi, previa, alMedir }: {
           )}
         </div>
       )}
-      <div className="e-code">{codigo}</div>
+      <div className="e-code" style={altoBarras ? { height: `${altoBarras}mm` } : undefined}>{codigo}</div>
       {sku && <div className="e-sku">{p.sku}</div>}
       {(precio || extras) && (
         <div className="e-pie">

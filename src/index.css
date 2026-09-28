@@ -170,6 +170,9 @@ form.tarjeta, section.tarjeta, .tarjeta.sticky { display: flex; flex-direction: 
 .etiqueta.barras { display: flex; flex-direction: column; gap: 0.15em; }
 .etiqueta.barras .e-code { flex: 1; min-height: 0; padding: 0.1em 0.4em; display: flex; justify-content: center; align-items: center; }
 .etiqueta.barras .e-top .e-desc { -webkit-line-clamp: 1; }
+.etiqueta.barras.alto-fijo { justify-content: space-evenly; }
+.etiqueta.barras.alto-fijo .e-code { flex: none; }
+.etiqueta.barras.alto-fijo .e-top .e-desc { -webkit-line-clamp: 2; }
 .etiqueta.barras .e-top { display: flex; align-items: center; gap: 0.4em; min-width: 0; }
 .etiqueta.barras .e-top.solo-logo { justify-content: center; }
 .etiqueta.barras .e-top-texto { flex: 1; min-width: 0; }
