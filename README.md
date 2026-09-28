@@ -1,32 +1,33 @@
-# React + TypeScript + Vite
+# Etiquetador
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Generador gratuito de etiquetas con **código de barras (Code 128, EAN-13) o QR**, descripción, precio, ubicación, stock y logo — listo para imprimir en impresoras térmicas o en hojas adhesivas.
 
-Currently, two official plugins are available:
+**Úsalo en línea:** https://generador-etiquetas-hazel.vercel.app
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Características
 
-## React Compiler
+- Sin registro y sin servidor: todo se genera en tu navegador, tus productos no se guardan ni se envían.
+- Campos activables: descripción, precio, ubicación, stock, código en texto, nombre del negocio y logo.
+- Carga masiva desde **Excel** (.xlsx, .xls, .csv) con plantilla descargable. La columna "Etiquetas" define cuántas imprimir por producto.
+- Pregunta cuántas etiquetas imprimir antes de mandar a la impresora; permite saltar etiquetas ya usadas de una hoja.
+- Perfiles de impresora con guía de configuración: **TSC TE200/TE210/TE300/TE310, TTP-244, DA210, Zebra, Xprinter, 3nStar, Godex, Honeywell, Brother QL, Dymo** e impresoras de tinta/láser.
+- Tamaños listos para rollos térmicos (1, 2 y 3 por fila), Brother DK, Dymo y hojas Avery / serie L (carta, oficio y A4), o medidas personalizadas con calibración.
+- Barras y QR ajustados a puntos enteros del cabezal (203 / 300 / 600 dpi) para que se escaneen bien.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Desarrollo
 
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+npm install
+npm run dev     # http://localhost:5173
+npm run build   # genera dist/
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+Hecho con React + Vite + TypeScript, [JsBarcode](https://github.com/lindell/JsBarcode), [node-qrcode](https://github.com/soldair/node-qrcode) y [SheetJS](https://sheetjs.com).
+
+## Contribuir
+
+¿Tu impresora o tamaño de etiqueta no está en la lista? Abre un *issue* o un *pull request* agregándolo en `src/lib/impresoras.ts` o `src/lib/formatos.ts`.
+
+## Licencia
+
+[MIT](LICENSE) © 2026 KevCodeGT

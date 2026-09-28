@@ -394,7 +394,11 @@ export default function App() {
           </aside>
         </main>
         <footer className="pie">
-          Herramienta gratuita para la comunidad · Todo se genera en tu navegador: tus productos no se envían ni se guardan en ningún servidor.
+          <p>Herramienta gratuita para la comunidad · Todo se genera en tu navegador: tus productos no se envían ni se guardan en ningún servidor.</p>
+          <p>
+            Desarrollado por <a href="https://github.com/kevcodegt" target="_blank" rel="noopener"><b>KevCodeGT</b></a> ·
+            Código abierto con licencia MIT en <a href="https://github.com/kevcodegt/generador-etiquetas" target="_blank" rel="noopener">GitHub</a>
+          </p>
         </footer>
       </div>
 
