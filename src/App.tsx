@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent } from 'react'
 import Etiqueta, { type Diseno } from './components/Etiqueta'
 import { TIPOS, generarSku } from './lib/codes'
 import { PAPELES, PRESETS, porPagina, seSale, tamPagina, type Plantilla } from './lib/formatos'
 import { CAMPOS, PRODUCTO_VACIO, type Producto } from './lib/types'
 import { IMPRESORAS } from './lib/impresoras'
 import { descargarPlantilla, leerExcel } from './lib/excel'
+import { CAPAS_BARRAS, CAPAS_QR, NOMBRES, clamp, type Capa, type Elemento } from './lib/capas'
 
 interface Ajustes {
   diseno: Diseno
@@ -19,6 +20,7 @@ interface Ajustes {
 const AJUSTES_INICIALES: Ajustes = {
   diseno: {
     tipo: 'CODE128', qrDatos: false, moneda: 'Q', negocio: '', borde: false, logo: '', logoTam: 30, logoBN: true, codigoTam: 100, codigoAltoMm: 0,
+    libre: false, capasBarras: CAPAS_BARRAS, capasQr: CAPAS_QR,
     mostrar: { descripcion: true, precio: true, ubicacion: false, stock: false, sku: true, negocio: false, logo: false },
   },
   preset: 'r5025',
@@ -37,7 +39,12 @@ function leerAjustes(): Ajustes {
     if (!a) return AJUSTES_INICIALES
     return {
       ...AJUSTES_INICIALES, ...a,
-      diseno: { ...AJUSTES_INICIALES.diseno, ...a.diseno, mostrar: { ...AJUSTES_INICIALES.diseno.mostrar, ...a.diseno?.mostrar } },
+      diseno: {
+        ...AJUSTES_INICIALES.diseno, ...a.diseno,
+        mostrar: { ...AJUSTES_INICIALES.diseno.mostrar, ...a.diseno?.mostrar },
+        capasBarras: { ...CAPAS_BARRAS, ...a.diseno?.capasBarras },
+        capasQr: { ...CAPAS_QR, ...a.diseno?.capasQr },
+      },
       plantilla: { ...AJUSTES_INICIALES.plantilla, ...a.plantilla },
     }
   } catch { return AJUSTES_INICIALES }
@@ -56,6 +63,33 @@ export default function App() {
   const [trabajo, setTrabajo] = useState<Trabajo | null>(null)
   const [verMedidas, setVerMedidas] = useState(false)
   const [medida, setMedida] = useState<{ ancho: number; puntos: number } | null>(null)
+  const [sel, setSel] = useState<Elemento | null>(null)
+  const claveCapas = aj.diseno.tipo === 'QR' ? 'capasQr' : 'capasBarras'
+  const cambiarCapa = useCallback((el: Elemento, c: Partial<Capa>) => {
+    setAj((a) => {
+      const k = a.diseno.tipo === 'QR' ? 'capasQr' : 'capasBarras'
+      return { ...a, diseno: { ...a.diseno, [k]: { ...a.diseno[k], [el]: { ...a.diseno[k][el], ...c } } } }
+    })
+  }, [])
+  const editor = useMemo(() => ({ sel, seleccionar: setSel, cambiar: cambiarCapa }), [sel, cambiarCapa])
+
+  // Flechas del teclado para mover con precisión el elemento seleccionado (Shift = más rápido)
+  useEffect(() => {
+    if (!aj.diseno.libre || !sel) return
+    function tecla(e: KeyboardEvent) {
+      const t = e.target as HTMLElement
+      if (['INPUT', 'SELECT', 'TEXTAREA'].includes(t.tagName)) return
+      const paso = e.shiftKey ? 2 : 0.5
+      const mov: Record<string, [number, number]> = { ArrowLeft: [-paso, 0], ArrowRight: [paso, 0], ArrowUp: [0, -paso], ArrowDown: [0, paso] }
+      if (e.key === 'Escape') { setSel(null); return }
+      if (!mov[e.key] || !sel) return
+      e.preventDefault()
+      const c = aj.diseno[claveCapas][sel]
+      cambiarCapa(sel, { x: +clamp(c.x + mov[e.key][0], 0, 100 - c.w).toFixed(2), y: +clamp(c.y + mov[e.key][1], 0, 100 - c.h).toFixed(2) })
+    }
+    window.addEventListener('keydown', tecla)
+    return () => window.removeEventListener('keydown', tecla)
+  }, [aj.diseno, sel, claveCapas, cambiarCapa])
   const skuRef = useRef<HTMLInputElement>(null)
   const logoRef = useRef<HTMLInputElement>(null)
   const excelRef = useRef<HTMLInputElement>(null)
@@ -297,7 +331,7 @@ export default function App() {
                 <label>{d.tipo === 'QR' ? 'Tamaño del QR' : 'Ancho del código'} <span className="suave">{d.codigoTam}%</span>
                   <input type="range" min={20} max={100} step={5} value={d.codigoTam} onChange={(e) => setD({ codigoTam: Number(e.target.value) })} />
                 </label>
-                {d.tipo !== 'QR' && (
+                {d.tipo !== 'QR' && !d.libre && (
                   <label>Alto de las barras <span className="suave">{d.codigoAltoMm > 0 ? `${Math.min(d.codigoAltoMm, +(pl.h * 0.8).toFixed(1))} mm` : 'Auto (llena el espacio)'}</span>
                     <input type="range" min={2} max={Math.floor(pl.h * 0.8)} step={0.5}
                       value={d.codigoAltoMm > 0 ? Math.min(d.codigoAltoMm, pl.h * 0.8) : Math.floor(pl.h * 0.8)}
@@ -387,14 +421,21 @@ export default function App() {
           <aside className="columna previa">
             <div className="tarjeta sticky">
               <h2>Vista previa</h2>
+              <div className="segmento chico">
+                <button className={!d.libre ? 'on' : ''} onClick={() => { setD({ libre: false }); setSel(null) }}>Automático</button>
+                <button className={d.libre ? 'on' : ''} onClick={() => setD({ libre: true })}>✥ Mover elementos</button>
+              </div>
               <div className="lienzo">
                 <div style={{ zoom: escala, '--z': escala } as CSSProperties}>
-                  <Etiqueta p={muestra} d={d} w={pl.w} h={pl.h} dpi={aj.dpi} previa alMedir={setMedida} />
+                  <Etiqueta p={muestra} d={d} w={pl.w} h={pl.h} dpi={aj.dpi} previa alMedir={setMedida} editor={d.libre ? editor : undefined} />
                 </div>
               </div>
+              {d.libre && <PanelCapa sel={sel} setSel={setSel} capa={sel ? d[claveCapas][sel] : null} cambiar={cambiarCapa}
+                activos={(el) => el === 'codigo' || (el === 'logo' ? d.mostrar.logo && !!d.logo : d.mostrar[el])}
+                restablecer={() => { setD({ [claveCapas]: claveCapas === 'capasQr' ? CAPAS_QR : CAPAS_BARRAS }); setSel(null) }} />}
               <p className="suave centrado">
                 Etiqueta {pl.w} × {pl.h} mm{porPagina(pl) > 1 && ` · ${porPagina(pl)} por ${hoja ? 'hoja' : 'fila'}`}
-                {medida && <><br />{d.tipo === 'QR' ? 'QR' : 'Código'}: {medida.ancho} mm {d.tipo === 'QR' ? 'por lado' : 'de ancho'} · {medida.puntos} punto{medida.puntos === 1 ? '' : 's'} por {d.tipo === 'QR' ? 'cuadro' : 'barra'} a {aj.dpi} dpi</>}
+                {medida && !d.libre && <><br />{d.tipo === 'QR' ? 'QR' : 'Código'}: {medida.ancho} mm {d.tipo === 'QR' ? 'por lado' : 'de ancho'} · {medida.puntos} punto{medida.puntos === 1 ? '' : 's'} por {d.tipo === 'QR' ? 'cuadro' : 'barra'} a {aj.dpi} dpi</>}
                 {muestra === EJEMPLO && ' · datos de ejemplo'}
               </p>
 
@@ -428,6 +469,50 @@ export default function App() {
 
       {trabajo && <AreaImpresion trabajo={trabajo} pl={pl} d={d} dpi={aj.dpi} dx={aj.dx} dy={aj.dy} />}
     </>
+  )
+}
+
+function PanelCapa({ sel, setSel, capa, cambiar, restablecer, activos }: {
+  sel: Elemento | null; setSel: (e: Elemento | null) => void; capa: Capa | null; activos: (e: Elemento) => boolean
+  cambiar: (e: Elemento, c: Partial<Capa>) => void; restablecer: () => void
+}) {
+  const texto = sel && sel !== 'codigo' && sel !== 'logo'
+  return (
+    <div className="panel-capa">
+      <div className="chips">
+        {(Object.keys(NOMBRES) as Elemento[]).map((el) => (
+          <button key={el} className={sel === el ? 'on' : ''} disabled={!activos(el)} title={activos(el) ? '' : 'Actívalo en "Datos del producto"'}
+            onClick={() => setSel(sel === el ? null : el)}>{NOMBRES[el]}</button>
+        ))}
+      </div>
+      {!sel || !capa ? (
+        <p className="suave pequeno">Arrastra cualquier elemento en la vista previa para moverlo. Selecciónalo y usa la esquina ◢ para cambiar su tamaño, o las flechas del teclado para moverlo con precisión.</p>
+      ) : (
+        <div className="props">
+          {texto && (
+            <>
+              <label>Tamaño de letra <span className="suave">{capa.fs}</span>
+                <input type="range" min={3} max={40} step={0.5} value={capa.fs} onChange={(e) => cambiar(sel, { fs: Number(e.target.value) })} />
+              </label>
+              <div className="botonera">
+                {(['left', 'center', 'right'] as const).map((a) => (
+                  <button key={a} className={capa.align === a ? 'on' : ''} onClick={() => cambiar(sel, { align: a })} title={a}>
+                    {a === 'left' ? '← Izq.' : a === 'center' ? 'Centro' : 'Der. →'}
+                  </button>
+                ))}
+                <button className={capa.bold ? 'on' : ''} onClick={() => cambiar(sel, { bold: !capa.bold })}><b>N</b> Negrita</button>
+              </div>
+            </>
+          )}
+          <div className="botonera">
+            <button onClick={() => cambiar(sel, { x: +(50 - capa.w / 2).toFixed(2) })}>↔ Centrar</button>
+            <button onClick={() => cambiar(sel, { y: +(50 - capa.h / 2).toFixed(2) })}>↕ Centrar</button>
+            <button onClick={() => cambiar(sel, { x: 0, w: 100 })}>Todo el ancho</button>
+          </div>
+        </div>
+      )}
+      <button className="link izq" onClick={restablecer}>Restablecer posiciones</button>
+    </div>
   )
 }
 

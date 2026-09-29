@@ -1,6 +1,8 @@
 import { useEffect, useMemo } from 'react'
 import { barrasSvg, qrSvg, type TipoCodigo } from '../lib/codes'
 import { formatoPrecio, type Mostrar, type Producto } from '../lib/types'
+import type { Capas } from '../lib/capas'
+import EtiquetaLibre, { type Editor } from './EtiquetaLibre'
 
 export interface Diseno {
   tipo: TipoCodigo
@@ -14,6 +16,9 @@ export interface Diseno {
   codigoTam: number // % del ancho máximo disponible para el código
   codigoAltoMm: number // alto de las barras en mm; 0 = automático (llena el espacio)
   borde: boolean
+  libre: boolean // diseño libre: cada elemento en la posición que elija el usuario
+  capasBarras: Capas
+  capasQr: Capas
 }
 
 export function textoQr(p: Producto, d: Diseno) {
@@ -36,16 +41,23 @@ export function useCodigo(p: Producto, d: Diseno) {
 }
 
 /** Ajusta el tamaño del módulo a puntos enteros de la impresora (203/300/600 dpi) para que el lector lo lea bien. */
-function aPuntos(disponible: number, modulos: number, dpi: number) {
+export function aPuntos(disponible: number, modulos: number, dpi: number) {
   const punto = 25.4 / dpi
   const puntos = Math.max(1, Math.floor(disponible / modulos / punto + 1e-6))
   return { tam: puntos * punto * modulos, puntos, cabe: puntos * punto * modulos <= disponible + 0.01 }
 }
 
-export default function Etiqueta({ p, d, w, h, dpi, previa, alMedir }: {
+type Props = {
   p: Producto; d: Diseno; w: number; h: number; dpi: number; previa?: boolean
   alMedir?: (m: { ancho: number; puntos: number } | null) => void
-}) {
+  editor?: Editor
+}
+
+export default function Etiqueta(props: Props) {
+  return props.d.libre ? <EtiquetaLibre {...props} /> : <EtiquetaAuto {...props} />
+}
+
+function EtiquetaAuto({ p, d, w, h, dpi, previa, alMedir }: Props) {
   const cod = useCodigo(p, d)
   const m = d.mostrar
   const precio = m.precio && p.precio ? formatoPrecio(p.precio, d.moneda) : ''

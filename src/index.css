@@ -152,6 +152,29 @@ form.tarjeta, section.tarjeta, .tarjeta.sticky { display: flex; flex-direction: 
 .resumen { font-size: 18px; margin: 0; padding: 12px 14px; background: #fff8d1; border: 2px solid var(--negro); border-radius: var(--radio); }
 
 .area-impresion { display: none; }
+/* Diseño libre */
+.etiqueta.libre { padding: 0; }
+.capa { position: absolute; display: flex; align-items: center; overflow: hidden; line-height: 1.1; min-width: 0; }
+.capa > span { display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; width: 100%; word-break: break-word; }
+.capa-codigo { justify-content: center !important; align-items: center; }
+.capa-codigo .svg { flex: none; }
+.capa-sku > span { font-family: 'JetBrains Mono', monospace; letter-spacing: 0.06em; }
+.capa .e-logo { width: 100%; height: 100%; object-fit: contain; }
+.etiqueta.editando .capa { cursor: move; outline: 0.15mm dashed rgba(0, 0, 0, 0.25); touch-action: none; user-select: none; }
+.etiqueta.editando .capa:hover { outline-color: #0a6cff; }
+.etiqueta.editando .capa.sel { outline: 0.3mm solid #0a6cff; overflow: visible; z-index: 2; background: rgba(10, 108, 255, 0.06); }
+.etiqueta.editando .capa.sel > span, .etiqueta.editando .capa.sel > .svg { overflow: hidden; }
+.tirador { position: absolute; right: -1.2mm; bottom: -1.2mm; width: 2.4mm; height: 2.4mm; background: #0a6cff; border: 0.3mm solid #fff; border-radius: 0.4mm; cursor: nwse-resize; touch-action: none; }
+.segmento.chico button { padding: 8px; font-size: 14px; }
+.panel-capa { display: flex; flex-direction: column; gap: 10px; padding: 12px; background: var(--fondo); border-radius: var(--radio); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chips button, .botonera button { border: 2px solid var(--linea); background: var(--papel); border-radius: 20px; padding: 4px 10px; font-size: 13px; font-weight: 700; cursor: pointer; }
+.chips button:disabled { opacity: 0.4; cursor: not-allowed; }
+.chips button.on, .botonera button.on { border-color: #0a6cff; background: #0a6cff; color: #fff; }
+.botonera { display: flex; flex-wrap: wrap; gap: 6px; }
+.botonera button { border-radius: var(--radio); }
+.props { display: flex; flex-direction: column; gap: 10px; }
+.props input[type='range'] { accent-color: #0a6cff; }
 .pie { text-align: center; padding: 8px 16px 32px; color: var(--suave); font-size: 13px; font-weight: 500; }
 .pie p { margin: 4px 0; }
 .pie a { color: var(--texto); font-weight: 700; text-underline-offset: 3px; }
@@ -209,6 +232,7 @@ form.tarjeta, section.tarjeta, .tarjeta.sticky { display: flex; flex-direction: 
 }
 
 @media print {
+  .etiqueta.editando .capa { outline: none !important; background: none !important; }
   html, body { background: #fff !important; margin: 0; padding: 0; }
   .no-print { display: none !important; }
   .area-impresion { display: block; }
