@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react'
-import { barrasSvg, qrSvg, type TipoCodigo } from '../lib/codes'
+import { barrasSvg, qrSvg, type Codigo, type TipoCodigo } from '../lib/codes'
 import { formatoPrecio, type Mostrar, type Producto } from '../lib/types'
 import type { Capas } from '../lib/capas'
 import EtiquetaLibre, { type Editor } from './EtiquetaLibre'
@@ -32,12 +32,32 @@ export function textoQr(p: Producto, d: Diseno) {
   return l.join('\n')
 }
 
+const cache = new Map<string, Codigo | null>()
+
+/** undefined = sin código escrito; null = no válido para el tipo elegido. */
+export function generarCodigo(p: Producto, d: Diseno): Codigo | null | undefined {
+  const sku = p.sku.trim()
+  if (!sku) return undefined
+  const texto = d.tipo === 'QR' ? textoQr({ ...p, sku }, d) : sku
+  const clave = d.tipo + '\u0000' + texto
+  if (!cache.has(clave)) {
+    if (cache.size > 3000) cache.clear()
+    cache.set(clave, d.tipo === 'QR' ? qrSvg(texto) : barrasSvg(texto, d.tipo))
+  }
+  return cache.get(clave)
+}
+
+/** Por qué un código no es válido, en palabras simples. */
+export function motivoInvalido(sku: string, tipo: TipoCodigo) {
+  if (tipo === 'EAN13') return 'EAN-13 necesita 12 o 13 dígitos (y el último debe ser el verificador correcto)'
+  if (tipo === 'CODE128' && /[^\x20-\x7e]/.test(sku)) return 'Code 128 no acepta ñ, tildes ni símbolos especiales'
+  return 'Código no válido'
+}
+
 export function useCodigo(p: Producto, d: Diseno) {
   const qrTexto = d.tipo === 'QR' ? textoQr(p, d) : ''
-  return useMemo(() => {
-    if (!p.sku.trim()) return undefined
-    return d.tipo === 'QR' ? qrSvg(qrTexto) : barrasSvg(p.sku.trim(), d.tipo)
-  }, [p.sku, d.tipo, qrTexto])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  return useMemo(() => generarCodigo(p, d), [p.sku, d.tipo, qrTexto])
 }
 
 /** Ajusta el tamaño del módulo a puntos enteros de la impresora (203/300/600 dpi) para que el lector lo lea bien. */
@@ -93,7 +113,7 @@ function EtiquetaAuto({ p, d, w, h, dpi, previa, alMedir }: Props) {
   const codigo = cod === undefined
     ? <div className="sin-codigo">Escribe un código</div>
     : cod === null
-      ? <div className="invalido">{d.tipo === 'EAN13' ? 'EAN-13 necesita 12 o 13 dígitos válidos' : 'Código no válido'}</div>
+      ? <div className="invalido">{motivoInvalido(p.sku, d.tipo)}</div>
       : <div className="svg" style={tamCodigo} dangerouslySetInnerHTML={{ __html: cod.svg }} />
 
   const estilo = { width: `${w}mm`, height: `${h}mm`, fontSize: `${fs}mm` }

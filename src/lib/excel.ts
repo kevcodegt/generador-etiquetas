@@ -1,4 +1,4 @@
-import type { Producto } from './types'
+import { normalizarNumero, type Producto } from './types'
 
 type Fila = Omit<Producto, 'id'> & { copias?: number }
 
@@ -18,7 +18,8 @@ export async function leerExcel(archivo: File): Promise<{ filas: Fila[]; aviso: 
   const XLSX = await import('xlsx') // se carga solo cuando se usa
   const libro = XLSX.read(await archivo.arrayBuffer(), { type: 'array' })
   const hoja = libro.Sheets[libro.SheetNames[0]]
-  const datos = XLSX.utils.sheet_to_json<unknown[]>(hoja, { header: 1, raw: false, defval: '' })
+  // raw: true para recibir los números completos (con raw: false Excel entrega "7.50103E+12" en códigos largos)
+  const datos = XLSX.utils.sheet_to_json<unknown[]>(hoja, { header: 1, raw: true, defval: '' })
     .filter((f) => f.some((c) => String(c).trim() !== ''))
   if (!datos.length) return { filas: [], aviso: 'El archivo está vacío.' }
 
@@ -42,8 +43,13 @@ export async function leerExcel(archivo: File): Promise<{ filas: Fila[]; aviso: 
     aviso = 'No encontré una columna "Código"; usé el orden A=código, B=descripción, C=precio, D=ubicación, E=stock, F=etiquetas.'
   }
 
-  const celda = (f: unknown[], campo: keyof Fila) => (mapa[campo] === undefined ? '' : String(f[mapa[campo]!] ?? '').trim())
-  const numero = (v: string) => v.replace(/[^\d.,-]/g, '').replace(/,(?=\d{3}(\D|$))/g, '').replace(',', '.')
+  const celda = (f: unknown[], campo: keyof Fila) => {
+    if (mapa[campo] === undefined) return ''
+    const v = f[mapa[campo]!]
+    if (typeof v === 'number') return Number.isInteger(v) ? v.toFixed(0) : String(v)
+    return String(v ?? '').trim()
+  }
+  const numero = normalizarNumero
 
   const filas = datos.slice(fila0 + 1).map((f) => {
     const copias = parseInt(celda(f, 'copias'))

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent } from 'react'
-import Etiqueta, { type Diseno } from './components/Etiqueta'
+import Etiqueta, { generarCodigo, motivoInvalido, type Diseno } from './components/Etiqueta'
 import { TIPOS, generarSku } from './lib/codes'
 import { PAPELES, PRESETS, porPagina, seSale, tamPagina, type Plantilla } from './lib/formatos'
 import { CAMPOS, PRODUCTO_VACIO, type Producto } from './lib/types'
@@ -136,15 +136,20 @@ export default function App() {
     }
   }
 
-  const { diseno: d, plantilla: pl } = aj
+  const d = aj.diseno
+  // Medidas seguras para dibujar aunque el usuario esté escribiendo (campo vacío = 0)
+  const pl: Plantilla = { ...aj.plantilla, w: Math.max(5, aj.plantilla.w || 0), h: Math.max(5, aj.plantilla.h || 0), cols: Math.max(1, aj.plantilla.cols || 1), filas: Math.max(1, aj.plantilla.filas || 1) }
   const hoja = pl.medio === 'hoja'
 
   useEffect(() => {
-    try { localStorage.setItem(CLAVE, JSON.stringify(aj)) } catch { /* sin almacenamiento: no pasa nada */ }
+    try { localStorage.setItem(CLAVE, JSON.stringify(aj)) } catch {
+      // Si el logo no cabe en el almacenamiento, guardar al menos el resto de la configuración
+      try { localStorage.setItem(CLAVE, JSON.stringify({ ...aj, diseno: { ...aj.diseno, logo: '' } })) } catch { /* sin almacenamiento */ }
+    }
   }, [aj])
 
   const setD = (c: Partial<Diseno>) => setAj({ ...aj, diseno: { ...d, ...c } })
-  const setP = (c: Partial<Plantilla>) => setAj({ ...aj, preset: 'custom', plantilla: { ...pl, ...c } })
+  const setP = (c: Partial<Plantilla>) => setAj({ ...aj, preset: 'custom', plantilla: { ...aj.plantilla, ...c } })
   function elegirImpresora(id: string) {
     const imp = IMPRESORAS.find((x) => x.id === id)!
     const pr = PRESETS.find((x) => x.id === imp.preset)!
@@ -316,7 +321,7 @@ export default function App() {
               <div className="opciones">
                 {TIPOS.map((t) => (
                   <label key={t.id} className={`opcion ${d.tipo === t.id ? 'on' : ''}`}>
-                    <input type="radio" name="tipo" checked={d.tipo === t.id} onChange={() => setD({ tipo: t.id })} />
+                    <input type="radio" name="tipo" checked={d.tipo === t.id} onChange={() => { setD({ tipo: t.id }); setSel(null) }} />
                     <span><b>{t.nombre}</b><small>{t.ayuda}</small></span>
                   </label>
                 ))}
@@ -385,8 +390,8 @@ export default function App() {
                       </select>
                     </label>
                   )}
-                  <Num label="Ancho etiqueta" v={pl.w} on={(w) => setP({ w })} min={5} />
-                  <Num label="Alto etiqueta" v={pl.h} on={(h) => setP({ h })} min={5} />
+                  <Num label="Ancho etiqueta" v={aj.plantilla.w} on={(w) => setP({ w })} min={5} />
+                  <Num label="Alto etiqueta" v={aj.plantilla.h} on={(h) => setP({ h })} min={5} />
                   <Num label={hoja ? 'Columnas' : 'Etiquetas por fila'} v={pl.cols} on={(cols) => setP({ cols: Math.max(1, Math.round(cols)) })} min={1} step={1} unidad="" />
                   {hoja && <Num label="Filas" v={pl.filas} on={(filas) => setP({ filas: Math.max(1, Math.round(filas)) })} min={1} step={1} unidad="" />}
                   {hoja && <Num label="Margen superior" v={pl.top} on={(top) => setP({ top })} />}
@@ -462,7 +467,7 @@ export default function App() {
       </div>
 
       {preguntar && (
-        <Cantidades productos={aImprimir} hoja={hoja} porHoja={porPagina(pl)}
+        <Cantidades productos={aImprimir} d={d} hoja={hoja} porHoja={porPagina(pl)}
           onCancelar={() => setPreguntar(false)}
           onImprimir={(t) => { setPreguntar(false); setTrabajo(t) }} />
       )}
@@ -529,22 +534,26 @@ function Num({ label, v, on, min = 0, step = 0.1, unidad = 'mm' }: {
   )
 }
 
-function Cantidades({ productos, hoja, porHoja, onCancelar, onImprimir }: {
-  productos: Producto[]; hoja: boolean; porHoja: number
+function Cantidades({ productos, d, hoja, porHoja, onCancelar, onImprimir }: {
+  productos: Producto[]; d: Diseno; hoja: boolean; porHoja: number
   onCancelar: () => void; onImprimir: (t: Trabajo) => void
 }) {
-  const [n, setN] = useState<Record<string, string>>(() => Object.fromEntries(productos.map((p) => [p.id, String(p.copias ?? 1)])))
+  // Los productos cuyo código no sirve para el tipo elegido se dejan en 0 para no imprimir etiquetas con error
+  const invalidos = useMemo(() => new Set(productos.filter((p) => generarCodigo(p, d) === null).map((p) => p.id)), [productos, d])
+  const [n, setN] = useState<Record<string, string>>(() =>
+    Object.fromEntries(productos.map((p) => [p.id, invalidos.has(p.id) ? '0' : String(p.copias ?? 1)])))
   const [saltar, setSaltar] = useState('0')
   const [todos, setTodos] = useState('1')
-  const total = productos.reduce((s, p) => s + (parseInt(n[p.id]) || 0), 0)
-  const hojas = hoja ? Math.ceil((total + (parseInt(saltar) || 0)) / porHoja) : 0
+  const total = productos.reduce((s, p) => s + Math.min(2000, Math.max(0, parseInt(n[p.id]) || 0)), 0)
+  const saltadas = hoja ? Math.min(porHoja - 1, Math.max(0, parseInt(saltar) || 0)) : 0
+  const hojas = hoja ? Math.ceil((total + saltadas) / porHoja) : 0
 
   function enviar(e: FormEvent) {
     e.preventDefault()
     if (!total) return
     onImprimir({
-      items: productos.map((p) => ({ p, n: Math.min(2000, parseInt(n[p.id]) || 0) })),
-      saltar: hoja ? Math.min(porHoja - 1, parseInt(saltar) || 0) : 0,
+      items: productos.map((p) => ({ p, n: Math.min(2000, Math.max(0, parseInt(n[p.id]) || 0)) })),
+      saltar: saltadas,
     })
   }
 
@@ -556,18 +565,22 @@ function Cantidades({ productos, hoja, porHoja, onCancelar, onImprimir }: {
           <div className="todos">
             <span>Misma cantidad para todos:</span>
             <input type="number" min={0} max={2000} value={todos} onChange={(e) => setTodos(e.target.value)} />
-            <button type="button" className="btn" onClick={() => setN(Object.fromEntries(productos.map((p) => [p.id, todos])))}>Aplicar</button>
+            <button type="button" className="btn" onClick={() => setN(Object.fromEntries(productos.map((p) => [p.id, invalidos.has(p.id) ? '0' : todos])))}>Aplicar</button>
           </div>
         )}
         <div className="cantidades">
           {productos.map((p, i) => (
-            <label key={p.id} className="cantidad">
-              <span className="nombre"><b className="mono">{p.sku}</b>{p.descripcion && ` · ${p.descripcion}`}</span>
+            <label key={p.id} className={`cantidad ${invalidos.has(p.id) ? 'con-error' : ''}`}>
+              <span className="nombre"><b className="mono">{p.sku}</b>{p.descripcion && ` · ${p.descripcion}`}
+                {invalidos.has(p.id) && <small className="error">{motivoInvalido(p.sku, d.tipo)}</small>}</span>
               <input type="number" min={0} max={2000} value={n[p.id]} autoFocus={i === 0}
                 onFocus={(e) => e.target.select()} onChange={(e) => setN({ ...n, [p.id]: e.target.value })} />
             </label>
           ))}
         </div>
+        {invalidos.size > 0 && (
+          <p className="error">{invalidos.size} producto{invalidos.size === 1 ? '' : 's'} con código no válido para {d.tipo === 'EAN13' ? 'EAN-13' : 'este tipo'}: los dejé en 0. Cambia a Code 128 o QR, o corrige el código.</p>
+        )}
         {hoja && (
           <label className="en-linea">Ya usé
             <input type="number" min={0} max={porHoja - 1} value={saltar} onChange={(e) => setSaltar(e.target.value)} />

@@ -145,6 +145,8 @@ form.tarjeta, section.tarjeta, .tarjeta.sticky { display: flex; flex-direction: 
 .todos { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 10px 12px; background: var(--fondo); border-radius: var(--radio); font-weight: 600; font-size: 14px; }
 .todos input { width: 80px !important; padding: 6px 8px !important; }
 .cantidad { flex-direction: row; align-items: center; gap: 12px; font-weight: 500; }
+.cantidad.con-error .nombre { white-space: normal; }
+.cantidad .nombre small { display: block; font-size: 12px; }
 .cantidad .nombre { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cantidad input { width: 100px !important; text-align: right; font-size: 18px; font-weight: 800; }
 .en-linea { flex-direction: row; align-items: center; flex-wrap: wrap; gap: 8px; font-weight: 500; }
@@ -226,6 +228,8 @@ form.tarjeta, section.tarjeta, .tarjeta.sticky { display: flex; flex-direction: 
   .opciones { grid-template-columns: 1fr; }
 }
 @media (max-width: 520px) {
+  .lista-item { flex-wrap: wrap; }
+  .lista-item .nombre { order: 10; flex-basis: 100%; white-space: normal; }
   .medidas { grid-template-columns: 1fr; }
   .medidas .span2 { grid-column: auto; }
   .fila-campos { flex-direction: column; }

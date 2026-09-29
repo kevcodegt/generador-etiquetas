@@ -1,5 +1,5 @@
 import { useRef, type PointerEvent as PE } from 'react'
-import { aPuntos, useCodigo, type Diseno } from './Etiqueta'
+import { aPuntos, motivoInvalido, useCodigo, type Diseno } from './Etiqueta'
 import { clamp, type Capa, type Elemento } from '../lib/capas'
 import { formatoPrecio, type Producto } from '../lib/types'
 
@@ -63,7 +63,7 @@ export default function EtiquetaLibre({ p, d, w, h, dpi, previa, editor }: {
     const bh = (h * c.h) / 100
     if (el === 'codigo') {
       if (cod === undefined) return <div className="sin-codigo">Escribe un código</div>
-      if (cod === null) return <div className="invalido">{d.tipo === 'EAN13' ? 'EAN-13 necesita 12 o 13 dígitos' : 'Código no válido'}</div>
+      if (cod === null) return <div className="invalido">{motivoInvalido(p.sku, d.tipo)}</div>
       const disp = (d.tipo === 'QR' ? Math.min(bw, bh) : bw) * (d.codigoTam ?? 100) / 100
       const aj = aPuntos(disp, cod.modulos, dpi)
       const modulo = aj.tam / cod.modulos
